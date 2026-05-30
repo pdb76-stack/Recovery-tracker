@@ -33,9 +33,9 @@
     });
 
     const blankPad = () => ({
-      id: Date.now(), startTime: nowTime(), endTime: "",
-      saturation: "Spotty", activity: "",
-    });
+  id: Date.now(), startTime: nowTime(), endTime: "",
+  saturation: "Spotty", weightGrams: "", activity: "",
+});
 
     const calcDuration = (start, end) => {
       if (!start || !end) return null;
@@ -139,8 +139,10 @@
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
             {SATURATION.map(s => <Pill key={s} label={s} active={pad.saturation === s} onClick={() => onChange({ ...pad, saturation: s })} color={SAT_COLOR[s]} />)}
           </div>
-          <Label>Activity / notes while wearing</Label>
-          <input type="text" value={pad.activity} onChange={e => onChange({ ...pad, activity: e.target.value })} placeholder="e.g. Desk work, walking, exercises…" style={inp} />
+          <Label>Pad weight (grams)</Label>
+<input type="number" value={pad.weightGrams||""} onChange={e => onChange({ ...pad, weightGrams: e.target.value })} placeholder="Weigh pad when removed" style={{ ...inp, marginBottom: 12 }} />
+<Label>Activity / notes while wearing</Label>
+<input type="text" value={pad.activity} onChange={e => onChange({ ...pad, activity: e.target.value })} placeholder="e.g. Desk work, walking, exercises…" style={inp} />>
         </div>
       );
     };
