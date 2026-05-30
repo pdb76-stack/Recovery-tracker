@@ -19,12 +19,9 @@
   <script type="text/babel">
     const { useState, useEffect, useCallback } = React;
 
-    const SATURATION = ["Dry", "Spotty", "Wet", "Soaked"];
-    const SAT_COLOR = { Dry: "#4ade80", Spotty: "#facc15", Wet: "#fb923c", Soaked: "#f87171" };
-    const SAT_SCORE = { Dry: 0, Spotty: 1, Wet: 2, Soaked: 3 };
     const today = () => new Date().toISOString().slice(0, 10);
     const nowTime = () => new Date().toTimeString().slice(0, 5);
-    const STORE_KEY = "recovery_tracker_v2";
+    const STORE_KEY = "recovery_tracker_v3";
 
     const blankEntry = () => ({
       date: today(), pads: [], activityLevel: "Light",
@@ -33,9 +30,9 @@
     });
 
     const blankPad = () => ({
-  id: Date.now(), startTime: nowTime(), endTime: "",
-  saturation: "Spotty", weightGrams: "", activity: "",
-});
+      id: Date.now(), startTime: nowTime(), endTime: "",
+      weightGrams: "", activity: "",
+    });
 
     const calcDuration = (start, end) => {
       if (!start || !end) return null;
@@ -105,17 +102,44 @@
 
     const inp = { background: "#0f172a", border: "1.5px solid #334155", borderRadius: 8, color: "#e2e8f0", padding: "7px 10px", fontSize: 14, width: "100%", boxSizing: "border-box" };
 
-    const BarChart = ({ data, color, valueKey, labelKey, formatVal }) => {
+    const BarChart = ({ data, color, valueKey, labelKey, formatVal, unit }) => {
       const max = Math.max(...data.map(d => d[valueKey]), 1);
       return (
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 100, paddingTop: 8 }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 110, paddingTop: 8 }}>
           {data.map((d, i) => (
-            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <span style={{ fontSize: 9, color: "#475569" }}>{formatVal ? formatVal(d[valueKey]) : d[valueKey]}</span>
-              <div style={{ width: "100%", background: color, borderRadius: "3px 3px 0 0", height: `${Math.max((d[valueKey] / max) * 70, d[valueKey] > 0 ? 4 : 0)}px` }} />
-              <span style={{ fontSize: 9, color: "#475569", textAlign: "center" }}>{d[labelKey]}</span>
+            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+              <span style={{ fontSize: 8, color: "#475569" }}>{formatVal ? formatVal(d[valueKey]) : d[valueKey]}{unit||""}</span>
+              <div style={{ width: "100%", background: color, borderRadius: "3px 3px 0 0", height: `${Math.max((d[valueKey] / max) * 75, d[valueKey] > 0 ? 4 : 0)}px` }} />
+              <span style={{ fontSize: 8, color: "#475569", textAlign: "center", lineHeight: 1.2 }}>{d[labelKey]}</span>
             </div>
           ))}
+        </div>
+      );
+    };
+
+    const DotPlot = ({ data }) => {
+      if (!data.length) return null;
+      const maxW = Math.max(...data.map(d => d.weight), 1);
+      return (
+        <div style={{ position: "relative", height: 140, background: "#0f172a", borderRadius: 10, padding: "10px 8px 24px" }}>
+          <div style={{ position: "absolute", bottom: 24, left: 8, right: 8, height: 1, background: "#1e293b" }} />
+          {["6am","9am","12pm","3pm","6pm","9pm"].map((t,i) => (
+            <span key={t} style={{ position: "absolute", bottom: 6, left: `${8 + (i/5)*85}%`, fontSize: 8, color: "#334155", transform: "translateX(-50%)" }}>{t}</span>
+          ))}
+          {data.map((d, i) => {
+            const x = (d.hour / 24) * 100;
+            const y = 100 - (d.weight / maxW) * 80;
+            const col = d.weight < 10 ? "#4ade80" : d.weight < 30 ? "#facc15" : d.weight < 60 ? "#fb923c" : "#f87171";
+            return (
+              <div key={i} title={`${d.time} — ${d.weight}g`} style={{
+                position: "absolute",
+                left: `${x}%`, top: `${y}%`,
+                width: 10, height: 10, borderRadius: "50%",
+                background: col, transform: "translate(-50%,-50%)",
+                border: "1.5px solid #0f172a",
+              }} />
+            );
+          })}
         </div>
       );
     };
@@ -128,6 +152,7 @@
             <span style={{ fontSize: 13, fontWeight: 700, color: "#475569" }}>PAD {index + 1}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               {duration && <span style={{ fontSize: 12, color: "#38bdf8", fontWeight: 600 }}>⏱ {duration}</span>}
+              {pad.weightGrams && <span style={{ fontSize: 12, color: "#a78bfa", fontWeight: 600 }}>{pad.weightGrams}g</span>}
               <button onClick={onRemove} style={{ background: "none", border: "none", color: "#475569", cursor: "pointer", fontSize: 20 }}>×</button>
             </div>
           </div>
@@ -135,18 +160,16 @@
             <div><Label>Put on</Label><input type="time" value={pad.startTime} onChange={e => onChange({ ...pad, startTime: e.target.value })} style={inp} /></div>
             <div><Label>Removed</Label><input type="time" value={pad.endTime} onChange={e => onChange({ ...pad, endTime: e.target.value })} style={inp} /></div>
           </div>
-          <Label>Saturation when removed</Label>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-            {SATURATION.map(s => <Pill key={s} label={s} active={pad.saturation === s} onClick={() => onChange({ ...pad, saturation: s })} color={SAT_COLOR[s]} />)}
-          </div>
-          <Label>Pad weight (grams)</Label>
-<input type="number" value={pad.weightGrams||""} onChange={e => onChange({ ...pad, weightGrams: e.target.value })} placeholder="Weigh pad when removed" style={{ ...inp, marginBottom: 12 }} />
-<Label>Activity / notes while wearing</Label>
-<input type="text" value={pad.activity} onChange={e => onChange({ ...pad, activity: e.target.value })} placeholder="e.g. Desk work, walking, exercises…" style={inp} />>
+          <Label>Weight when removed (grams)</Label>
+          <input type="number" value={pad.weightGrams||""} onChange={e => onChange({ ...pad, weightGrams: e.target.value })}
+            placeholder="Weigh pad when removed" style={{ ...inp, marginBottom: 12 }} />
+          <Label>Activity / notes while wearing</Label>
+          <input type="text" value={pad.activity} onChange={e => onChange({ ...pad, activity: e.target.value })}
+            placeholder="e.g. Desk work, walking, exercises…" style={inp} />
         </div>
       );
     };
-function App() {
+    function App() {
       const [view, setView] = useState("log");
       const [entry, setEntry] = useState(blankEntry());
       const [entries, setEntries] = useState([]);
@@ -192,6 +215,7 @@ function App() {
       const avgStress = inRange.length ? (inRange.reduce((s,e) => s+e.stressLevel,0)/inRange.length).toFixed(1) : "–";
       const exerciseDays = inRange.filter(e => e.exercisesDone).length;
       const workDays = inRange.filter(e => e.workDay).length;
+
       const padDurations = allPads.map(p => {
         if (!p.startTime||!p.endTime) return null;
         const [sh,sm]=p.startTime.split(":").map(Number), [eh,em]=p.endTime.split(":").map(Number);
@@ -199,16 +223,23 @@ function App() {
       }).filter(d=>d&&d>0);
       const avgDurMins = padDurations.length ? Math.round(padDurations.reduce((a,b)=>a+b,0)/padDurations.length) : null;
       const avgDurStr = avgDurMins ? (avgDurMins>=60?`${Math.floor(avgDurMins/60)}h ${avgDurMins%60}m`:`${avgDurMins}m`) : "–";
-     const satCounts = { Dry:0, Spotty:0, Wet:0, Soaked:0 };
-      allPads.forEach(p => { if(p.saturation) satCounts[p.saturation]++; });
+
       const totalGrams = allPads.reduce((s,p) => s + (parseFloat(p.weightGrams)||0), 0);
       const avgGramsPerDay = inRange.length ? (totalGrams/inRange.length).toFixed(1) : "–";
+      const heaviestPad = allPads.reduce((b,p) => (parseFloat(p.weightGrams)||0) > (parseFloat(b.weightGrams)||0) ? p : b, allPads[0] || {});
 
       const trendData = entries.slice(-14).map(e => ({
         date: e.date.slice(5),
         pads: e.pads?.length || 0,
-        sat: e.pads?.length ? Math.round(e.pads.reduce((s,p)=>s+SAT_SCORE[p.saturation],0)/e.pads.length*10)/10 : 0,
+        grams: Math.round((e.pads||[]).reduce((s,p)=>s+(parseFloat(p.weightGrams)||0),0)),
       }));
+
+      const dotData = inRange.flatMap(e =>
+        (e.pads||[]).filter(p=>p.endTime&&p.weightGrams).map(p => {
+          const [h,m] = p.endTime.split(":").map(Number);
+          return { time: p.endTime, hour: h + m/60, weight: parseFloat(p.weightGrams)||0, activity: p.activity };
+        })
+      );
 
       return (
         <div style={{ background: "#0f172a", minHeight: "100vh", color: "#e2e8f0", maxWidth: 480, margin: "0 auto", paddingBottom: 80 }}>
@@ -284,14 +315,13 @@ function App() {
                     <Card title="Pads per day (last 14 days)">
                       <BarChart data={trendData} color="#38bdf8" valueKey="pads" labelKey="date" />
                     </Card>
-                    <Card title="Avg saturation (last 14 days)">
-                      <p style={{ margin: "0 0 8px", fontSize: 11, color: "#475569" }}>0 = Dry · 1 = Spotty · 2 = Wet · 3 = Soaked</p>
-                      <BarChart data={trendData} color="#fb923c" valueKey="sat" labelKey="date" formatVal={v => v.toFixed(1)} />
+                    <Card title="Total grams leaked per day (last 14 days)">
+                      <BarChart data={trendData} color="#a78bfa" valueKey="grams" labelKey="date" unit="g" />
                     </Card>
                     <Card title="Recent days">
                       {entries.slice(-14).reverse().map(e => {
-                        const avgSat = e.pads?.length ? e.pads.reduce((s,p)=>s+SAT_SCORE[p.saturation],0)/e.pads.length : 0;
-                        const col = avgSat < 0.5 ? "#4ade80" : avgSat < 1.5 ? "#facc15" : avgSat < 2.5 ? "#fb923c" : "#f87171";
+                        const grams = (e.pads||[]).reduce((s,p)=>s+(parseFloat(p.weightGrams)||0),0);
+                        const col = grams === 0 ? "#4ade80" : grams < 20 ? "#facc15" : grams < 60 ? "#fb923c" : "#f87171";
                         return (
                           <div key={e.date} style={{ padding: "12px 0", borderBottom: "1px solid #0f172a" }}>
                             <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -301,13 +331,14 @@ function App() {
                                 </span>
                                 <div style={{ display: "flex", gap: 8, marginTop: 3 }}>
                                   {e.workDay && <span style={{ fontSize: 11, color: "#475569" }}>Work</span>}
-                                  {e.exercisesDone && <span style={{ fontSize: 11, color: "#475569" }}>Exercises{e.exerciseTime ? ` (${e.exerciseTime})` : ""}</span>}
+                                  {e.exercisesDone && <span style={{ fontSize: 11, color: "#475569" }}>Exercises{e.exerciseTime?` (${e.exerciseTime})`:""}</span>}
                                   <span style={{ fontSize: 11, color: "#475569" }}>Stress {e.stressLevel}/5</span>
                                 </div>
                               </div>
                               <div style={{ textAlign: "right" }}>
                                 <span style={{ fontSize: 20, fontWeight: 700, color: col }}>{e.pads?.length||0}</span>
                                 <span style={{ fontSize: 11, color: "#475569", display: "block" }}>pads</span>
+                                {grams > 0 && <span style={{ fontSize: 11, color: "#a78bfa" }}>{grams}g</span>}
                               </div>
                             </div>
                             {(e.pads||[]).map((p,i) => {
@@ -315,7 +346,7 @@ function App() {
                               return (
                                 <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6, paddingLeft: 4 }}>
                                   <span style={{ fontSize: 11, color: "#475569" }}>#{i+1}</span>
-                                  <span style={{ fontSize: 11, color: SAT_COLOR[p.saturation], fontWeight: 600 }}>{p.saturation}</span>
+                                  {p.weightGrams && <span style={{ fontSize: 11, color: "#a78bfa", fontWeight: 600 }}>{p.weightGrams}g</span>}
                                   {dur && <span style={{ fontSize: 11, color: "#475569" }}>{dur}</span>}
                                   {p.activity && <span style={{ fontSize: 11, color: "#475569", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.activity}</span>}
                                 </div>
@@ -347,13 +378,8 @@ function App() {
                       {[
                         ["Avg pads/day", avgPadsPerDay, "#38bdf8"],
                         ["Avg pad duration", avgDurStr, "#a78bfa"],
-                        ["Total grams", `${totalGrams.toFixed(0)}g`, "#38bdf8"],
-                        ["Avg grams/day", `${avgGramsPerDay}g`, "#a78bfa"],
-                        ["Days logged", inRange.length, "#94a3b8"],
-                        ["Work days", workDays, "#fb923c"],
-                        ["Exercise days", exerciseDays, "#4ade80"],
-                        ["Avg stress", `${avgStress}/5`, "#f87171"],
-                        ["Avg pad duration", avgDurStr, "#a78bfa"],
+                        ["Total grams", `${totalGrams.toFixed(0)}g`, "#a78bfa"],
+                        ["Avg grams/day", `${avgGramsPerDay}g`, "#38bdf8"],
                         ["Days logged", inRange.length, "#94a3b8"],
                         ["Work days", workDays, "#fb923c"],
                         ["Exercise days", exerciseDays, "#4ade80"],
@@ -366,29 +392,29 @@ function App() {
                       ))}
                     </div>
 
-                    <Card title="Saturation breakdown">
-                      <div style={{ display: "flex", gap: 8 }}>
-                        {SATURATION.map(s => (
-                          <div key={s} style={{ flex: 1, background: SAT_COLOR[s]+"15", borderRadius: 10, padding: "12px 8px", textAlign: "center" }}>
-                            <p style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: SAT_COLOR[s] }}>{satCounts[s]}</p>
-                            <p style={{ margin: 0, fontSize: 10, color: SAT_COLOR[s], fontWeight: 600 }}>{s}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </Card>
+                    {dotData.length > 0 && (
+                      <Card title="Leakage weight by time of day">
+                        <p style={{ margin: "0 0 8px", fontSize: 11, color: "#475569" }}>Each dot = one pad. Colour: green &lt;10g · yellow &lt;30g · orange &lt;60g · red 60g+</p>
+                        <DotPlot data={dotData} />
+                      </Card>
+                    )}
 
                     {bestDay && worstDay && (
                       <Card title="Best & Worst days">
                         <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-                          {[{day:bestDay,label:"BEST",color:"#4ade80"},{day:worstDay,label:"WORST",color:"#f87171"}].map(({day,label,color}) => (
-                            <button key={label} onClick={() => setExpandedDay(expandedDay===day.date+label ? null : day.date+label)}
-                              style={{ flex:1, background:color+"11", borderRadius:10, padding:"12px 14px", border: expandedDay===day.date+label ? `1.5px solid ${color}` : "1.5px solid transparent", cursor:"pointer", textAlign:"left" }}>
-                              <p style={{ margin:"0 0 4px", fontSize:11, color, fontWeight:700 }}>{label}</p>
-                              <p style={{ margin:0, fontSize:13, color:"#e2e8f0" }}>{new Date(day.date+"T12:00:00").toLocaleDateString("en-AU",{day:"numeric",month:"short"})}</p>
-                              <p style={{ margin:"4px 0 2px", fontSize:22, fontWeight:700, color }}>{day.pads?.length||0} <span style={{fontSize:12,fontWeight:400,color:"#94a3b8"}}>pads</span></p>
-                              <p style={{ margin:0, fontSize:11, color:"#475569" }}>{expandedDay===day.date+label ? "▲ hide" : "▼ tap to see why"}</p>
-                            </button>
-                          ))}
+                          {[{day:bestDay,label:"BEST",color:"#4ade80"},{day:worstDay,label:"WORST",color:"#f87171"}].map(({day,label,color}) => {
+                            const dayGrams = (day.pads||[]).reduce((s,p)=>s+(parseFloat(p.weightGrams)||0),0);
+                            return (
+                              <button key={label} onClick={() => setExpandedDay(expandedDay===day.date+label ? null : day.date+label)}
+                                style={{ flex:1, background:color+"11", borderRadius:10, padding:"12px 14px", border: expandedDay===day.date+label ? `1.5px solid ${color}` : "1.5px solid transparent", cursor:"pointer", textAlign:"left" }}>
+                                <p style={{ margin:"0 0 4px", fontSize:11, color, fontWeight:700 }}>{label}</p>
+                                <p style={{ margin:0, fontSize:13, color:"#e2e8f0" }}>{new Date(day.date+"T12:00:00").toLocaleDateString("en-AU",{day:"numeric",month:"short"})}</p>
+                                <p style={{ margin:"4px 0 2px", fontSize:22, fontWeight:700, color }}>{day.pads?.length||0} <span style={{fontSize:12,fontWeight:400,color:"#94a3b8"}}>pads</span></p>
+                                {dayGrams > 0 && <p style={{ margin:"2px 0", fontSize:13, color:"#a78bfa", fontWeight:600 }}>{dayGrams}g total</p>}
+                                <p style={{ margin:0, fontSize:11, color:"#475569" }}>{expandedDay===day.date+label ? "▲ hide" : "▼ tap to see why"}</p>
+                              </button>
+                            );
+                          })}
                         </div>
                         {[{day:bestDay,label:"BEST",color:"#4ade80"},{day:worstDay,label:"WORST",color:"#f87171"}].map(({day,label,color}) =>
                           expandedDay===day.date+label ? (
@@ -422,7 +448,7 @@ function App() {
                                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom: p.activity?4:0 }}>
                                       <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                                         <span style={{ fontSize:11, color:"#475569", fontWeight:700 }}>PAD {i+1}</span>
-                                        <span style={{ padding:"2px 8px", borderRadius:999, fontSize:11, fontWeight:700, background:SAT_COLOR[p.saturation]+"22", color:SAT_COLOR[p.saturation] }}>{p.saturation}</span>
+                                        {p.weightGrams && <span style={{ fontSize:12, color:"#a78bfa", fontWeight:600 }}>{p.weightGrams}g</span>}
                                       </div>
                                       {dur && <span style={{ fontSize:12, color:"#38bdf8", fontWeight:600 }}>⏱ {dur}</span>}
                                     </div>
@@ -450,12 +476,10 @@ Days logged: ${inRange.length}
 Pad usage
   Avg pads/day:     ${avgPadsPerDay}
   Avg pad duration: ${avgDurStr}
+  Total grams:      ${totalGrams.toFixed(0)}g
+  Avg grams/day:    ${avgGramsPerDay}g
   Best day:  ${bestDay?`${bestDay.pads?.length||0} pads (${bestDay.date})`:"–"}
   Worst day: ${worstDay?`${worstDay.pads?.length||0} pads (${worstDay.date})`:"–"}
-
-Saturation
-  Dry: ${satCounts.Dry}  Spotty: ${satCounts.Spotty}
-  Wet: ${satCounts.Wet}  Soaked: ${satCounts.Soaked}
 
 Context
   Work days:     ${workDays}/${inRange.length}
@@ -469,7 +493,7 @@ Day notes:
 ${inRange.filter(e=>e.notes).map(e=>`  ${e.date}: ${e.notes}`).join("\n")||"  None recorded"}`}
                       </div>
                       <button onClick={() => {
-                        const text = `Recovery Tracker — last ${reportRange} days\nAvg pads/day: ${avgPadsPerDay}\nAvg duration: ${avgDurStr}\nBest: ${bestDay?.pads?.length||0} pads (${bestDay?.date})\nWorst: ${worstDay?.pads?.length||0} pads (${worstDay?.date})\nDry:${satCounts.Dry} Spotty:${satCounts.Spotty} Wet:${satCounts.Wet} Soaked:${satCounts.Soaked}\nWork:${workDays}/${inRange.length} Exercise:${exerciseDays}/${inRange.length} Stress:${avgStress}/5`;
+                        const text = `Recovery Tracker — last ${reportRange} days\nAvg pads/day: ${avgPadsPerDay}\nAvg duration: ${avgDurStr}\nTotal grams: ${totalGrams.toFixed(0)}g\nAvg grams/day: ${avgGramsPerDay}g\nBest: ${bestDay?.pads?.length||0} pads (${bestDay?.date})\nWorst: ${worstDay?.pads?.length||0} pads (${worstDay?.date})\nWork:${workDays}/${inRange.length} Exercise:${exerciseDays}/${inRange.length} Stress:${avgStress}/5`;
                         navigator.clipboard.writeText(text).catch(()=>{});
                         alert("Copied to clipboard!");
                       }} style={{ marginTop:12, width:"100%", padding:"11px", borderRadius:10, border:"1.5px solid #334155", background:"none", color:"#38bdf8", fontWeight:600, cursor:"pointer", fontSize:14 }}>
