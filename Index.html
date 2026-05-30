@@ -378,8 +378,9 @@
                       {[
                         ["Avg pads/day", avgPadsPerDay, "#38bdf8"],
                         ["Avg pad duration", avgDurStr, "#a78bfa"],
-                        ["Total grams", `${totalGrams.toFixed(0)}g`, "#a78bfa"],
-                        ["Avg grams/day", `${avgGramsPerDay}g`, "#38bdf8"],
+["Total grams", `${totalGrams.toFixed(0)}g`, "#94a3b8"],
+                        ["Avg grams/day", `${avgGramsPerDay}g`, "#a78bfa"],
+                        ["Avg grams/pad", allPads.length ? `${(totalGrams/allPads.length).toFixed(1)}g` : "–", "#38bdf8"],
                         ["Days logged", inRange.length, "#94a3b8"],
                         ["Work days", workDays, "#fb923c"],
                         ["Exercise days", exerciseDays, "#4ade80"],
@@ -478,6 +479,7 @@ Pad usage
   Avg pad duration: ${avgDurStr}
   Total grams:      ${totalGrams.toFixed(0)}g
   Avg grams/day:    ${avgGramsPerDay}g
+  Avg grams/pad:    ${allPads.length ? (totalGrams/allPads.length).toFixed(1) : "–"}g
   Best day:  ${bestDay?`${bestDay.pads?.length||0} pads (${bestDay.date})`:"–"}
   Worst day: ${worstDay?`${worstDay.pads?.length||0} pads (${worstDay.date})`:"–"}
 
