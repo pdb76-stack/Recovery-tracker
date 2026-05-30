@@ -199,8 +199,10 @@ function App() {
       }).filter(d=>d&&d>0);
       const avgDurMins = padDurations.length ? Math.round(padDurations.reduce((a,b)=>a+b,0)/padDurations.length) : null;
       const avgDurStr = avgDurMins ? (avgDurMins>=60?`${Math.floor(avgDurMins/60)}h ${avgDurMins%60}m`:`${avgDurMins}m`) : "–";
-      const satCounts = { Dry:0, Spotty:0, Wet:0, Soaked:0 };
+     const satCounts = { Dry:0, Spotty:0, Wet:0, Soaked:0 };
       allPads.forEach(p => { if(p.saturation) satCounts[p.saturation]++; });
+      const totalGrams = allPads.reduce((s,p) => s + (parseFloat(p.weightGrams)||0), 0);
+      const avgGramsPerDay = inRange.length ? (totalGrams/inRange.length).toFixed(1) : "–";
 
       const trendData = entries.slice(-14).map(e => ({
         date: e.date.slice(5),
@@ -344,6 +346,13 @@ function App() {
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
                       {[
                         ["Avg pads/day", avgPadsPerDay, "#38bdf8"],
+                        ["Avg pad duration", avgDurStr, "#a78bfa"],
+                        ["Total grams", `${totalGrams.toFixed(0)}g`, "#38bdf8"],
+                        ["Avg grams/day", `${avgGramsPerDay}g`, "#a78bfa"],
+                        ["Days logged", inRange.length, "#94a3b8"],
+                        ["Work days", workDays, "#fb923c"],
+                        ["Exercise days", exerciseDays, "#4ade80"],
+                        ["Avg stress", `${avgStress}/5`, "#f87171"],
                         ["Avg pad duration", avgDurStr, "#a78bfa"],
                         ["Days logged", inRange.length, "#94a3b8"],
                         ["Work days", workDays, "#fb923c"],
